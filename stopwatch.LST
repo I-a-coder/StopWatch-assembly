@@ -1,0 +1,121 @@
+     1                                  org 100h
+     2                                  bits 16
+     3                                  
+     4 00000000 E9C900                  jmp start
+     5                                  
+     6 00000003 00                      min db 0
+     7 00000004 00                      sec db 0
+     8 00000005 00                      csec db 0
+     9 00000006 00                      run db 0
+    10 00000007 00                      tcount db 0
+    11 00000008 3A24                    msg1 db ':$'
+    12 0000000A 2E24                    msg2 db '.$'
+    13 0000000C 507265737320537061-     msg_start db 'Press Space to start/resume the stopwatch and Esc to exit :) $', 0
+    14 00000015 636520746F20737461-
+    15 0000001E 72742F726573756D65-
+    16 00000027 207468652073746F70-
+    17 00000030 776174636820616E64-
+    18 00000039 2045736320746F2065-
+    19 00000042 786974203A29202400 
+    20 0000004B 0000                    old_1C_off dw 0
+    21 0000004D 0000                    old_1C_seg dw 0
+    22                                  
+    23                                  timer:
+    24 0000004F 9C                          pushf
+    25 00000050 60                          pusha
+    26 00000051 803E[0600]00                cmp byte [run], 0
+    27 00000056 745D                        je done
+    28 00000058 FE06[0700]                  inc byte [tcount]
+    29 0000005C 803E[0700]05                cmp byte [tcount], 5       ;delay 
+    30 00000061 7552                        jne done
+    31 00000063 C606[0700]00                mov byte [tcount], 0
+    32 00000068 FE06[0500]                  inc byte [csec]
+    33 0000006C 803E[0500]64                cmp byte [csec], 100
+    34 00000071 7519                        jne update_display
+    35 00000073 C606[0500]00                mov byte [csec], 0
+    36 00000078 FE06[0400]                  inc byte [sec]
+    37 0000007C 803E[0400]3C                cmp byte [sec], 60
+    38 00000081 7509                        jne update_display
+    39 00000083 C606[0400]00                mov byte [sec], 0
+    40 00000088 FE06[0300]                  inc byte [min]
+    41                                  
+    42                                  update_display:
+    43 0000008C B402                        mov ah, 2
+    44 0000008E B700                        mov bh, 0
+    45 00000090 BA230C                      mov dx, 0C23h
+    46 00000093 CD10                        int 10h
+    47 00000095 A0[0300]                    mov al, [min]
+    48 00000098 E81D00                      call print_digit
+    49 0000009B BA[0800]                    mov dx, msg1
+    50 0000009E B409                        mov ah, 9
+    51 000000A0 CD21                        int 21h
+    52 000000A2 A0[0400]                    mov al, [sec]
+    53 000000A5 E81000                      call print_digit
+    54 000000A8 BA[0A00]                    mov dx, msg2
+    55 000000AB B409                        mov ah, 9
+    56 000000AD CD21                        int 21h
+    57 000000AF A0[0500]                    mov al, [csec]
+    58 000000B2 E80300                      call print_digit
+    59                                  
+    60                                  done:
+    61 000000B5 61                          popa
+    62 000000B6 9D                          popf
+    63 000000B7 CF                          iret
+    64                                  
+    65                                  print_digit:
+    66 000000B8 D40A                        aam
+    67 000000BA 053030                      add ax, 3030h
+    68 000000BD 50                          push ax
+    69 000000BE 88E2                        mov dl, ah
+    70 000000C0 B402                        mov ah, 2
+    71 000000C2 CD21                        int 21h
+    72 000000C4 58                          pop ax
+    73 000000C5 88C2                        mov dl, al
+    74 000000C7 B402                        mov ah, 2
+    75 000000C9 CD21                        int 21h
+    76 000000CB C3                          ret
+    77                                  
+    78                                  start:
+    79 000000CC B80300                      mov ax, 0003h
+    80 000000CF CD10                        int 10h
+    81                                  
+    82                                      
+    83 000000D1 BA[0C00]                    mov dx, msg_start
+    84 000000D4 B409                        mov ah, 9
+    85 000000D6 CD21                        int 21h
+    86                                  
+    87 000000D8 31C0                        xor ax, ax
+    88 000000DA 8EC0                        mov es, ax
+    89 000000DC 26A17000                    mov ax, [es:1Ch*4]
+    90 000000E0 A3[4B00]                    mov [old_1C_off], ax
+    91 000000E3 26A17200                    mov ax, [es:1Ch*4+2]
+    92 000000E7 A3[4D00]                    mov [old_1C_seg], ax
+    93 000000EA FA                          cli
+    94 000000EB 26C7067000[4F00]            mov word [es:1Ch*4], timer
+    95 000000F2 268C0E7200                  mov [es:1Ch*4+2], cs
+    96 000000F7 FB                          sti
+    97                                  
+    98                                  main:
+    99 000000F8 B401                        mov ah, 1
+   100 000000FA CD16                        int 16h
+   101 000000FC 74FA                        jz main
+   102 000000FE B400                        mov ah, 0
+   103 00000100 CD16                        int 16h
+   104 00000102 80FC01                      cmp ah, 1
+   105 00000105 740C                        je exit
+   106 00000107 80FC39                      cmp ah, 39h
+   107 0000010A 75EC                        jne main
+   108 0000010C 8036[0600]01                xor byte [run], 1
+   109 00000111 EBE5                        jmp main
+   110                                  
+   111                                  exit:
+   112 00000113 FA                          cli
+   113 00000114 B80000                      mov ax, 0
+   114 00000117 8EC0                        mov es, ax
+   115 00000119 A1[4B00]                    mov ax, [old_1C_off]
+   116 0000011C 26A37000                    mov [es:1Ch*4], ax
+   117 00000120 A1[4D00]                    mov ax, [old_1C_seg]
+   118 00000123 26A37200                    mov [es:1Ch*4+2], ax
+   119 00000127 FB                          sti
+   120 00000128 B8004C                      mov ax, 4C00h
+   121 0000012B CD21                        int 21h
